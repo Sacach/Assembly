@@ -1,0 +1,13 @@
+main:
+    irmovq $61440,%rax
+    irmovq $4095,%rbx
+    irmovq $0,%r10
+    rrmovq %r13,%r14
+    andq %rax,%r14
+    andq %rbx,%r13
+
+bittisiirto:
+    subq %rbx,%r14
+    jg bittisiirto
+    addq %rbx,%r14
+halt

@@ -1,0 +1,22 @@
+main:
+    irmovq $0,%rax
+    irmovq $1,%rdi
+    irmovq $0,%rsi
+    irmovq $0,%r10
+    irmovq $0,%r11
+    jmp loop
+loop:
+    popq %rcx
+    addq %rcx,%r11
+    addq %rdi,%rsi
+    subq %r10,%rcx
+    jne loop
+    subq %rdi,%rsi
+    addq %r11,%r12
+    subq %rsi,%r11
+    call jakolasku
+jakolasku:
+    addq %rdi,%rax
+    subq %rsi,%r11
+    jg jakolasku
+    halt

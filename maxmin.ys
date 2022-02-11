@@ -1,0 +1,45 @@
+main:
+    irmovq 0x800,%rax
+    
+    irmovq $0,%rdi #suurin
+    irmovq $0,%rsi #pienin
+    
+    irmovq $8,%r8 #askel
+    
+    irmovq $0,%r9 #lista päättynyt
+    irmovq $1,%r10 #vertailukohde
+    
+    subq %r8,%rax
+    mrmovq (%rax),%rdi
+    mrmovq (%rax),%rsi
+
+loop:
+    subq %r8,%rax
+    
+    mrmovq (%rax),%r10
+    subq %r9,%r10
+    je stop
+    
+    mrmovq (%rax),%r10
+    subq %rdi,%r10
+    jg suurempi
+    
+    mrmovq (%rax),%r10
+    subq %rsi,%r10
+    jl pienempi
+    
+    jmp loop
+    
+.pos 0x200
+suurempi:
+    mrmovq (%rax),%rdi
+    jmp loop
+
+.pos 0x300    
+pienempi:
+    mrmovq (%rax),%rsi
+    jmp loop
+
+.pos 0x400    
+stop:
+    halt

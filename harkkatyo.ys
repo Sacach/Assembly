@@ -1,0 +1,115 @@
+# TKJ-harjoitustyö 2020: Satunnaislukugeneraattori
+# Casimir Saastamoinen, 2588397, cajoal.cs@gmail.com
+#
+# Pohdinta:
+# - Ajonaikaisten käskyjen määrä: <2000
+# - Arvio perustuu siihen että laskin yhden satunnaisluvun tuottamiseen kuluvien 
+# käskyjen määrän, joka oli n. 300 siemenluvulla 6601 sitten kerroin käskyjen määrän haluttujen satunnaislukujen 
+# määrällä (5) jolloin käskyjen määrä olisi noin 1500, mutta jonkin luvun tuottaminen voi vaatia enemmän kuin 300 käskyä,
+# joten lisäsin 500 käskyä virhemarginaaliksi, koska en saanut käskyjä laskevia simulaattoreita toimimaan
+# - Mitään selkeää pullonkaulaa en hoksannut enää jakolaskun optimoinnin jälkeen 
+# peasant multiplication vähentää tarvittavia käskyjä huomattavasti, sillä 8000x8000 veisi yhteenlaskulla yli 8000 käskyä 
+# mutta peasant multiplication:llä se vie alle 150 käskyä
+# - Jakolaskua optimoin ensimmäisestä versiosta kasvattamalla vakiota, joka vähennetään ensimmäisenä 
+# ja sitten ylitse kirjoittamalla vakion arvon pienemmällä arvolla eri silmukoissa
+# - Bittisiirto vasemmalle onnistuu helposti käskyllä "addq %rekisteri %rekisteri"
+# - Siirto funktioita voisi todennäköisesti optimoida jotenkin, mutta en itse ainakaan ole hoksannut mitään helppoa tapaa siihen
+# - Jakolaskun optimoinnin jälkeen käskymäärät putosivat n. 30 000:sta alle 2000:teen 
+
+main:
+    irmovq $5,%r14      #laskee satunnaislukujen määrän
+    
+kertolasku:
+    irmovq $1,%r11      #vakio 1
+    irmovq $0,%r10      #vertailu nolla
+    irmovq $0,%rax      #%r8 * %r8
+    irmovq $1,%r9       #vertailubitti
+    rrmovq %r8,%rbx     #rekisterin r8 arvo muistiin, jotta sitä voidaan käyttää
+    rrmovq %r8,%rcx     #laskemiseen muokkaamatta kyseistä arvoa, useampi
+    rrmovq %r8,%rdx     #muistipaikka käyttöön, jotta kertolasku voidaan suorittaa
+
+loop1:
+    andq %r9,%rcx       #katsotaan onko %r8 arvon binäärimuodossa 1 kohdalla %r9
+    subq %r10,%rcx      #jos on niin hypätään summa funktioon
+    jne summa           #hyppy summa funktioon
+    subq %r9,%rdx       #verrataan onko %rdx:n suurin bitti suurempi kuin %r9 vertailubitti
+    jl jakolasku        #hyppy jakolasku vaiheeseen
+    addq %r9,%r9        #siirretään bittivertailijaa yhden bitin verran vasemmalle eli %r9 * 2
+    addq %rbx,%rbx      #siirretään kertojan bittejä yhden verran vasemmalle eli %rbx * 2
+    rrmovq %r8,%rcx     #alustetaan %rcx, jotta voidaan tehdä vertailu uudella kierroksella
+    rrmovq %r8,%rdx     #alustetaan %rdx, jotta voidaan tehdä vertailu uudella kierroksella
+    jmp loop1           #kierros alusta
+
+.pos 0x100
+summa:                  #summa funktio
+    addq %rbx,%rax      #summataan %rax 
+    rrmovq %r8,%rcx     #alustetaan %rcx, jotta voidaan tehdä vertailu uudella kierroksella
+    addq %r9,%r9        #siirretään bittivertailijaa yhden bitin verran vasemmalle eli %r9 * 2
+    addq %rbx,%rbx      #siirretään kertojan bittejä yhden verran vasemmalle eli %rbx * 2
+    jmp loop1           #palataan looppiin
+
+jakolasku:
+    irmovq $0,%r12      #4 keskimmäistä lukua
+    irmovq $1000,%rsi   #vakio 1000 (toistaiseksi)
+    irmovq $10000000,%rdi #vakio 10 000 000 (toistaiseksi)
+
+loop2:
+    subq %rdi,%rax      #nollataan kymmenet miljoonat
+    jg loop2            #jos %rax > 10 miljoonaa niin palataan loop2:n alkuun
+    addq %rdi,%rax      #%rax on nyt pienempi kuin 0 joten palautetaan se lukemaan joka se oli ennen kuin siitä vähennettiin viimeisin 10 miljoonaa
+    irmovq $1000000,%rdi #%rdi vakioksi 1 miljoona
+    jmp loop3           #hyppy jakolasku2 funktioon
+    
+loop3:
+    subq %rdi,%rax      #nollataan miljoonat
+    jg loop3            #jos %rax > 1 miljoona niin palataan jakolasku2:n alkuun
+    addq %rdi,%rax      #%rax on nyt pienempi kuin 0 joten palautetaan se lukemaan joka se oli ennen kuin siitä vähennettiin viimeisin miljoona
+    irmovq $100000,%rdi #%rdi vakioksi 100 000
+    jmp siirto1         #nyt %rax:stä on "poistettu" kaksi ensimmäistä numeroa joten %rax alkaa nyt sillä luvulla, 
+                        #joka tulee olemaan satunnais numeron ensimmäinen luku, hyppy siirto funktioon
+
+.pos 0x300
+siirto1:
+    subq %rdi,%rax      #nollataan sadat tuhannet
+    jl siirto2          #jos %rax < 100 000 niin jatketaan siirtämään seuraava numero oikeaan kohtaan
+    addq %rsi,%r12      #lisätään rekisteriin %r12 1000 jokaista vähennettyä 100 000 kohden (siirretään ensimmäinen satunnaisluvun numero oikealle paikalle)
+    jmp siirto1         #käydään läpi siirto1 uudelleen kunnes "jl siirto2" menee läpi
+
+siirto2:
+    addq %rdi,%rax      #%rax < 0, viimeisimmän vertailun takia, joten palautetaan se arvoon, joka se oli ennen vertailua
+    irmovq $0,%rdi      #%rdi vakioksi 0
+    irmovq $10000,%r13  #%r13 vakioksi 10 000
+    subq %r13,%rax      #nollataan kymmenet tuhannet
+    jl siirto3          #jos %rax < 10 000 niin jatketaan siirtämään seuraava numero oikeaan kohtaan
+    irmovq $100,%rsi    #%rsi vakioksi 100
+    addq %rsi,%r12      #lisätään rekisteriin %r12 100 jokaista vähennettyä 10 000 kohden (siirretään toinen satunnaisluvun numero oikealle paikalle)
+    jmp siirto2         #käydään läpi siirto2 uudelleen kunnes "jl siirto3" menee läpi
+
+siirto3:
+    addq %r13,%rax      #%rax < 0, vertailun takia, joten palautetaan edelliseen arvoon, ennen vertailua
+    irmovq $0,%r13      #%r13 vakioksi 0
+    irmovq $1000,%rdi   #%rdi vakioksi 1000
+    subq %rdi,%rax      #nollataan tuhannet
+    jl siirto4          #jos %rax < 1 000 niin jatketaan siirtämään seuraava numero oikeaan kohtaan
+    irmovq $10,%rsi     #%rsi vakioksi 10
+    addq %rsi,%r12      #lisätään rekisteriin %r12 10 jokaista vähennettyä 1 000 kohden (siirretään kolmas satunnaisluvun numero oikealle paikalle)
+    jmp siirto3         #käydään läpi siirto3 uudelleen kunnes "jl siirto4" menee läpi
+
+siirto4:
+    addq %rdi,%rax      #%rax < 0, vertailun takia, joten palautetaan edelliseen arvoon, ennen vertailua
+    irmovq $0,%rdi      #%rdi vakioksi 0
+    irmovq $100,%r13    #%r13 vakioksi 100
+    subq %r13,%rax      #nollataan sadat
+    jl rand             #jos %rax < 100 niin jatketaan siirtämään saatu satunnaisluku (%r12) pinoon
+    addq %r11,%r12      #lisätään rekisteriin %r12 1 jokaista vähennettyä 100 kohden (siirretään viimeinen satunnaisluvun numero oikealle paikalle)
+    jmp siirto4         #käydään läpi siirto4 uudelleen kunnes "jl rand" menee läpi
+
+rand:
+    pushq %r12          #viedään satunnaisluku %r12 pinoon
+    rrmovq %r12,%r8     #alustetaan %r8 saadulla satunnaisluvulla seuraavaa läpikäyntiä varten
+    subq %r11,%r14      #haluttiin 5 satunnaislukua, joten joka kerta kun on saatu uusi vähennetään laskurista (%r14) vakio 1
+    jg kertolasku       #toistetaan kertolaskusta lähtien kunnes %r14 = 0, jolloin on saatu 5 satunnaislukua
+    halt                #ohjelman pysäytys
+
+.pos 0x1000
+Pino:

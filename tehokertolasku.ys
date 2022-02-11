@@ -1,0 +1,29 @@
+main:
+    irmovq $0,%rax
+    
+    irmovq $1,%r8
+    irmovq $0,%r10
+    rrmovq %r11,%rbx
+    rrmovq %r12,%rcx
+    rrmovq %r11,%rdx
+loop:
+    andq %r8,%rcx
+    jne summa
+    subq %r8,%rdx
+    jl stop
+    addq %r8,%r8
+    addq %rbx,%rbx
+    rrmovq %r12,%rcx
+    rrmovq %r11,%rdx
+    jmp loop
+
+summa:
+    addq %rbx,%rax
+    rrmovq %r12,%rcx
+    addq %r8,%r8
+    addq %rbx,%rbx
+    jmp loop
+
+stop:
+    halt
+    
